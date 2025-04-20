@@ -9,7 +9,7 @@ from moveit_msgs.srv import GetPositionIK
 import tf_transformations as tf  # Cài bằng: pip install transforms3d tf-transformations
 
 # ==== Cấu hình mặc định ====
-default_orientation = {"rx": 0.0, "ry": 3.14, "rz": 0.0}
+default_orientation = {"A": 0.0, "B": 3.14, "C": 0.0}  # Thay RX, RY, RZ bằng A, B, C
 default_feedrate = 1000.0
 ik_service_name = "/compute_ik"
 group_name = "panda_arm"
@@ -115,13 +115,14 @@ class GCodeToJsonConverter(Node):
                     z = re.search(r'Z([\-\d.]+)', line)
                     f_val = re.search(r'F([\-\d.]+)', line)
 
-                    rx_match = re.search(r'RX([\-\d.]+)', line)
-                    ry_match = re.search(r'RY([\-\d.]+)', line)
-                    rz_match = re.search(r'RZ([\-\d.]+)', line)
+                    # Thay đổi từ RX, RY, RZ thành A, B, C
+                    a_match = re.search(r'A([\-\d.]+)', line)
+                    b_match = re.search(r'B([\-\d.]+)', line)
+                    c_match = re.search(r'C([\-\d.]+)', line)
 
-                    rx = float(rx_match.group(1)) if rx_match else default_orientation["rx"]
-                    ry = float(ry_match.group(1)) if ry_match else default_orientation["ry"]
-                    rz = float(rz_match.group(1)) if rz_match else default_orientation["rz"]
+                    a = float(a_match.group(1)) if a_match else default_orientation["A"]
+                    b = float(b_match.group(1)) if b_match else default_orientation["B"]
+                    c = float(c_match.group(1)) if c_match else default_orientation["C"]
 
                     if f_val:
                         current_feedrate = float(f_val.group(1))
@@ -131,13 +132,13 @@ class GCodeToJsonConverter(Node):
                             "x": float(x.group(1)) if x else 0.0,
                             "y": float(y.group(1)) if y else 0.0,
                             "z": float(z.group(1)) if z else 0.0,
-                            "rx": rx,
-                            "ry": ry,
-                            "rz": rz,
+                            "a": a,  # Thay RX bằng A
+                            "b": b,  # Thay RY bằng B
+                            "c": c,  # Thay RZ bằng C
                             "feedrate": current_feedrate
                         }
 
-                        quat = quaternion_from_euler(rx, ry, rz)
+                        quat = quaternion_from_euler(a, b, c)
 
                         pose_stamped = PoseStamped()
                         pose_stamped.header.frame_id = "panda_link0"
@@ -162,7 +163,7 @@ class GCodeToJsonConverter(Node):
                                 "w": quat[3]
                             }
                             tcp_path.append(point)
-                            self.get_logger().info(f'Added point: X={point["x"]} Y={point["y"]} Z={point["z"]} | RX={rx} RY={ry} RZ={rz}')
+                            self.get_logger().info(f'Added point: X={point["x"]} Y={point["y"]} Z={point["z"]} | A={a} B={b} C={c}')
                         else:
                             self.get_logger().warn(
                                 f'Skipped point: X={point["x"]} Y={point["y"]} Z={point["z"]} '

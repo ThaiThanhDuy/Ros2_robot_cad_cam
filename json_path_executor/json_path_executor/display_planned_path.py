@@ -20,17 +20,18 @@ class PathVisualizer(Node):
 
     def timer_callback(self):
         if not self.path_points:
+            self.get_logger().warn("Không có điểm nào để hiển thị.")
             return
 
         marker = Marker()
-        marker.header.frame_id = "world"  # hoặc "world", tùy theo bạn đang dùng TF gì
+        marker.header.frame_id = "world"
         marker.header.stamp = self.get_clock().now().to_msg()
         marker.ns = "tcp_path"
         marker.id = 0
         marker.type = Marker.LINE_STRIP
         marker.action = Marker.ADD
 
-        marker.scale.x = 0.005  # độ dày của line
+        marker.scale.x = 0.005
 
         marker.color.r = 1.0
         marker.color.g = 0.2
@@ -38,17 +39,17 @@ class PathVisualizer(Node):
         marker.color.a = 1.0
 
         for pt in self.path_points:
-            p = Point()
-            p.x = pt["x"] / 1000.0  # nếu đang dùng đơn vị mm thì chia 1000
-            p.y = pt["y"] / 1000.0
-            p.z = pt["z"] / 1000.0
-            marker.points.append(p)
+            try:
+                p = Point()
+                p.x = pt["x"] / 1000.0
+                p.y = pt["y"] / 1000.0
+                p.z = pt["z"] / 1000.0
+                marker.points.append(p)
+            except Exception as e:
+                self.get_logger().error(f"Lỗi đọc điểm: {pt} - {e}")
 
         self.marker_pub.publish(marker)
-        self.get_logger().info("Gửi đường line marker lên RViz")
-
-        self.destroy_node()
-        rclpy.shutdown()
+        self.get_logger().info(f"Đã gửi {len(marker.points)} điểm lên RViz.")
 
 def main(args=None):
     rclpy.init(args=args)

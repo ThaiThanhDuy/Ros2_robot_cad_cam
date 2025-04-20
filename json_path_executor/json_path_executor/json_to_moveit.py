@@ -17,13 +17,13 @@ def quaternion_from_euler(roll, pitch, yaw):
          math.sin(roll/2) * math.sin(pitch/2) * math.sin(yaw/2)
     return qx, qy, qz, qw
 
-class PandaTrajectoryPublisher(Node):
+class KukaTrajectoryPublisher(Node):
     def __init__(self):
-        super().__init__('panda_trajectory_publisher')
+        super().__init__('kuka_trajectory_publisher')
 
         self.publisher_ = self.create_publisher(
             JointTrajectory,
-            '/panda_arm_controller/joint_trajectory',
+            '/arm_controller/joint_trajectory',  # Thay topic controller cho KUKA
             10
         )
 
@@ -41,7 +41,7 @@ class PandaTrajectoryPublisher(Node):
 
         try:
             json_path = '/home/duy/ws_moveit2/src/json_path_executor/json_path_executor/tcp_path.json'
-    
+
             with open(json_path, 'r') as f:
                 self.path_points = json.load(f)
             self.get_logger().info("Đọc file JSON thành công")
@@ -84,19 +84,19 @@ class PandaTrajectoryPublisher(Node):
     def send_next_point(self):
         point_data = self.path_points[self.current_point_idx]
 
-        # So sánh với điểm trước để điều chỉnh hướng quay
+        # So sánh với điểm trước để điều chỉnh hướng quay (nếu cần)
         if self.previous_point:
-            for axis in ['rx', 'ry', 'rz']:
-                delta = abs(point_data[axis] - self.previous_point[axis])
-                if delta > math.pi:  # tránh quay ngược nếu có thể
-                    point_data[axis] = self.previous_point[axis]
+            for axis_old, axis_new in zip(['rx', 'ry', 'rz'], ['a', 'b', 'c']):
+                delta = abs(point_data[axis_new] - self.previous_point[axis_new])
+                if delta > math.pi:
+                    point_data[axis_new] = self.previous_point[axis_new]
 
         joint_positions = point_data["joint_positions"]
 
         traj_msg = JointTrajectory()
         traj_msg.joint_names = [
-            'panda_joint1', 'panda_joint2', 'panda_joint3',
-            'panda_joint4', 'panda_joint5', 'panda_joint6', 'panda_joint7'
+            'joint_a1', 'joint_a2', 'joint_a3',
+            'joint_a4', 'joint_a5', 'joint_a6'  # Tên các khớp của KUKA
         ]
 
         point = JointTrajectoryPoint()
@@ -111,12 +111,12 @@ class PandaTrajectoryPublisher(Node):
         self.previous_point = point_data
 
         x, y, z = point_data['x'], point_data['y'], point_data['z']
-        rx, ry, rz = point_data['rx'], point_data['ry'], point_data['rz']
-        qx, qy, qz, qw = quaternion_from_euler(rx, ry, rz)
+        a, b, c = point_data['a'], point_data['b'], point_data['c']
+        qx, qy, qz, qw = quaternion_from_euler(a, b, c)
 
         self.get_logger().info(f"Gửi điểm {self.current_point_idx + 1}: "
-                               f"TCP ({x:.1f}, {y:.1f}, {z:.1f}) | "
-                               f"Quat ({qx:.2f}, {qy:.2f}, {qz:.2f}, {qw:.2f})")
+                                f"TCP ({x:.1f}, {y:.1f}, {z:.1f}) | "
+                                f"Quat ({qx:.2f}, {qy:.2f}, {qz:.2f}, {qw:.2f})")
 
     def has_reached_target(self, tol=0.01):
         if self.current_joint_state is None:
@@ -124,8 +124,8 @@ class PandaTrajectoryPublisher(Node):
 
         name_to_pos = dict(zip(self.current_joint_state.name, self.current_joint_state.position))
         for i, name in enumerate([
-            'panda_joint1', 'panda_joint2', 'panda_joint3',
-            'panda_joint4', 'panda_joint5', 'panda_joint6', 'panda_joint7']):
+            'joint_a1', 'joint_a2', 'joint_a3',
+            'joint_a4', 'joint_a5', 'joint_a6']):  # Tên các khớp của KUKA
             current = name_to_pos.get(name, 0.0)
             target = self.target_joint[i]
             diff = abs(current - target)
@@ -136,7 +136,7 @@ class PandaTrajectoryPublisher(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = PandaTrajectoryPublisher()
+    node = KukaTrajectoryPublisher()  # Đổi tên class publisher
     rclpy.spin(node)
     rclpy.shutdown()
 
